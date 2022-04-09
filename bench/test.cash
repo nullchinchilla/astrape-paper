@@ -1,0 +1,71 @@
+pragma cashscript ^0.6.0;
+
+contract Astrape(pubkey sender,
+                 pubkey recipient,
+                  bytes32 X,
+                  bytes32 S,
+                  int timeout) {
+
+  // The xorcake case
+function unlock_hsoln(sig recipientSig, 
+                      bytes32 Kappa) {
+  require(checkSig(recipientSig, recipient));
+  // HTLC
+  require(hash256(Kappa) == S);
+}
+
+// The hashonion case
+function unlock_WSoln(bytes32 Kappa,  
+                      bytes32 Xi, 
+                      bytes Gamma) {
+  require(Gamma.length % 128 == 0);
+  // get the last element of Gamma
+  bytes Gamma_j = Gamma.split(Gamma.length - 32)[1];
+  bytes r_j = Gamma_j.split(32)[0];
+  bytes s_j = Gamma_j.split(32)[1].split(32)[0];
+  // check that it's a valid witness!
+  require(r_j + Kappa != s_j);
+  // construct the answer 
+  int index = Gamma.length - 128;
+
+  bytes32 accum = hash256(Gamma_j + Xi);
+
+  // **** "unrolled loop" ****
+  // Unrolled n times for n remaining hops
+  // n = 3 in this instance
+
+   if (index >= 128) {
+      bytes Gamma_i = 
+         Gamma.split(index)[1].split(128)[0];
+      accum = hash256(Gamma_i + accum);
+      index = index - 128;
+   }
+
+      if (index >= 128) {
+      bytes Gamma_i = 
+         Gamma.split(index)[1].split(128)[0];
+      accum = hash256(Gamma_i + accum);
+      index = index - 128;
+   }
+
+         if (index >= 128) {
+      bytes Gamma_i = 
+         Gamma.split(index)[1].split(128)[0];
+      accum = hash256(Gamma_i + accum);
+      index = index - 128;
+   }
+   
+
+  // **** end of unrolled loop ****
+
+
+  require(index == 0 && accum == X);
+}
+
+// Require timeout time to be reached 
+// and sender's signature to match
+function timeout(sig senderSig) {
+  require(checkSig(senderSig, sender));
+  require(tx.time >= timeout);
+}
+}
